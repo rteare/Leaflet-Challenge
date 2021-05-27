@@ -7,28 +7,78 @@ d3.json(queryUrl, function(data) {
     createFeatures(data.features);
 });
 
+// Create marker color based off depth of earthquake
+function markerColor(depth) {
+    var color= "";
+    if (depth > 90) {color = "red"}
+    else if (depth > 70) {color = "orangered"}
+    else if (depth > 50) {color = "orange"}
+    else if (depth > 30) {color = "yellow"}
+    else if (depth > 10) {color = "greenyellow"}
+    else {color = "lime"}
+
+    return color;
+};
+
 function createFeatures(earthquakeData) {
 
-    // Define a function we want to run once for each feature in the features array
-    // Give each feature a popup describing the place and time of the earthquake
-    function onEachFeature(feature, layer) {
-        layer.bindPopup("<h4>Location: " + feature.properties.place + "</h3><hr><p>Date: "
-        + new Date(feature.properties.time) + "</p><hr><p>Magnitude: " + feature.properties.mag + "</p>");
-  }
-  
-  // Create a GeoJSON layer containing the features array on the earthquakeData object
-  // Run the onEachFeature function once for each piece of data in the array
-  var earthquakes = L.geoJSON(earthquakeData, {
-    onEachFeature: onEachFeature
-  });
-  
-  // Sending our earthquakes layer to the createMap function
-  createMap(earthquakes);
+    d3.json(queryUrl, function (data) {
+        console.log(data)
+        // // Create marker color based off depth of earthquake
+        // function markerColor(depth) {
+        //     var color= "";
+        //     if (depth > 90) {color = "red"}
+        //     else if (depth > 70) {color = "orangered"}
+        //     else if (depth > 50) {color = "orange"}
+        //     else if (depth > 30) {color = "yellow"}
+        //     else if (depth > 10) {color = "greenyellow"}
+        //     else {color = "lime"}
 
+        //     return color;
+        // };
+        
+        // Create marker size based of magnitude
+        function markerRadius(mag) {
+            return mag * 3;
+        };
+
+        // Create a GeoJSON layer containing the features array on the earthquakeData object
+        // Run the function once for each piece of data in the array
+        var earthquakes = L.geoJSON(data, {
+            pointToLayer: function (feature, latlng) {
+                return L.circleMarker(latlng);
+            },
+
+            style: function (feature, layer) {
+                return{
+                    fillOpacity: 0.8,
+                    fillColor: markerColor(feature.geometry.coordinates[2]),
+                    color: "black",
+                    weight: 0.5,
+                    radius: markerRadius(feature.properties.mag),
+                    stroke: true
+                };
+            },
+
+            // Define a function we want to run once for each feature in the features array
+            // Give each feature a popup describing the place and time of the earthquake
+            onEachFeature: function (feature, layer) {
+                layer.bindPopup("<h3>Location: " + feature.properties.place + 
+                "</h3><hr><p>Date & Time: " + new Date(feature.properties.time) + 
+                "</p><hr><p>Magnitude: " + feature.properties.mag + "</p>" +
+                "</p><hr><p>Depth: " + feature.geometry.coordinates[2] + "</p>");
+            },
+                       
+        })
+      
+        // Sending our earthquakes layer to the createMap function
+        createMap(earthquakes);       
+    });
 }
 
+// Build map
 function createMap(earthquakes) {
-    
+  
     // Define layers
     // Satelitemap layer
     var satellitemap = L.tileLayer("https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}", {
@@ -94,10 +144,8 @@ function createMap(earthquakes) {
 
     // Create our map, giving it the lightmap and earthquakes layers to display on load
     var myMap = L.map("map", {
-        center: [
-            37.09, -95.71
-        ],
-        zoom: 5,
+        center: [40, -40],
+        zoom: 3,
         layers: [lightmap, earthquakes]
     });
 
@@ -108,12 +156,24 @@ function createMap(earthquakes) {
         collapsed: false
     }).addTo(myMap);
 
-    d3.json(queryUrl, function(data) {
-        // Function to determine marker size based on magnitude
-        function markerSize(magnitude) {
-            return magnitude 
-        }
+    // Create the legend for he map explaining the colors
+    var legend = L.control({position: "bottomright"});
+    legend.onAdd = function(myMap) {
+        let div = L.DomUtil.create('div', 'legend'),
+            labels = ['<strong>Richter Scale</strong>']
+            colors = ["lime", "greenyellow", "yellow", "orange", "orangered", "red"];
+        
+        let key = ['-10-10', '10-30', '30-50', '50-70', '70-90', '90+']    
 
-    })
-
-}
+        for(i = 0; i < colors.length; i++) {
+            div.innerHTML +=
+                labels.push(
+                    '<i style="background:' + colors[i] + '"></i><span>' + key[i] + '</span>'
+                );
+        };
+        div.innerHTML = labels.join('<br>');
+        
+        return div;
+    };
+    legend.addTo(myMap);
+};
